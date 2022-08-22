@@ -3,11 +3,11 @@ Les résultats des commandes citées dans les paragraphes qui suivent sont tiré
 
 # 1. Les composants matériels
 
-## Introduction
+## 1.1 Introduction
 
 Nous allons prendre connaissance de la machine en auditant ses composants matériels, à savoir son CPU, Disque et Mémoire.
 
-## Les composants CPU de la machine
+## 1.2 Les composants CPU de la machine
 
 Sur une nouvelle machine qu'on ne connaît pas, on fait généralement un petit inventaire :
 
@@ -79,7 +79,7 @@ Ils indiquent que le processeur protège l'exécution d'instructions stockées d
 
 Cette commande filtre le contenu du fichier **/proc/cpuinfo** sur les lignes contenant le mot-clé **flags**.
 
-## Les composants mémoire de la machine
+## 1.3 Les composants mémoire de la machine
 
 Le noyau laisse aussi une trace des composants mémoire qu'il sollicite au démarrage :
 
@@ -132,7 +132,7 @@ Quoi qu'il en soit, même aujourd'hui, il est toujours important de conserver un
     0 pages swapped in
     0 pages swapped out
 
-## Les composants DISK de la machine
+## 1.4 Les composants DISK de la machine
 
 Inventaire des traces laissées par le noyau lors du démarrage :
 
@@ -147,8 +147,8 @@ Pas de recommandation car la présence d'un périphérique de type bloc est comm
 
 # 2. Le partitionnement des disques
 
-## Introduction
+## 2.1 Introduction
 
 Analysons plus end étail le partitionnement et les systèmes de fichiers des périphériques de type bloc. On y verra les défauts de droits et mauvaises options de montage des disques sur le systèmes.
 
-## Le partitionnement du disque dur
+## 2.2 Le partitionnement du disque dur
