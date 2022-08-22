@@ -309,7 +309,7 @@ La partition **/boot** est très sensible car elle contient le noyau de Linux et
     drwx------. 5 root root 97 27 mars 09:34 grub2
     dr-xr-xr-x. 17 root root 233 27 mars 09:48 ..
 
-Le fichier **System.map** contient la table des symboles utilisés par le noyau.
+Le fichier **/boot/System.map** contient la table des symboles utilisés par le noyau.
 
 C'est à dire, une liste des variables et fonctions associées à leurs adresses mémoire respectives. En quelque sorte, les **pages jaunes du noyau Linux**.
 
