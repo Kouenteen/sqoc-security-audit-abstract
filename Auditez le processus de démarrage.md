@@ -3,11 +3,11 @@ Les résultats des commandes citées dans les paragraphes qui suivent sont tiré
 
 # 1. Le bootloader, les options du noyaux et ses modules
 
-## Introduction
+## 1.1 Introduction
 
 Voyons la sécurité du bootloader, les options du noyau et le chargement dynamique des modules du noyau.
 
-## Le processus de démarrage et le bootloader
+## 1.2 Le processus de démarrage et le bootloader
 Sous Linux, le standard c'est Grub en version 2, il sert à lister les systèmes d'exploitations disponibles
 sur l'ordinateur à choisir, ou encore de lancer par défaut un de ces systèmes.
 
@@ -69,18 +69,18 @@ Le code contenu dans ce fichier propose de créer un utilisateur root avec les d
 >
 > Par exemple, avec les commandes suivantes : `grub2-mkpasswd-pbkdf2`, `nano /etc/grub.d/01_users` et `grub2-mkconfig -o /boot/grub2/grub.cfg`.
 
-    [root@machines grub.d]# grub2-mkpasswd-pbkdf2
+    [root@machine grub.d]# grub2-mkpasswd-pbkdf2
     Entrez le mot de passe :
     Entrez de nouveau le mot de passe :
     Le hachage PBKDF2 du mot de passe est grub.pbkdf2.sha512.10000.5DE21XXXXXXXXXXX
 
-    [root@machines grub.d]# nano /etc/grub.d/01_users
+    [root@machine grub.d]# nano /etc/grub.d/01_users
     set superusers="admin"
     password_pbkdf2 admin grub.pbkdf2.sha512.10000.5DE21XXXXXXXXXXX
 
-    [root@machines grub.d]# grub2-mkconfig -o /boot/grub2/grub.cfg
+    [root@machine grub.d]# grub2-mkconfig -o /boot/grub2/grub.cfg
 
-## Options par défaut du noyau Linux
+## 1.3 Options par défaut du noyau Linux
 
 Le fichier **/boot/grub2/grub.cfg** rassemble les fichiers contenus dans **/etc/grub.d**. Consultons le fichier et affichons les options utilisées pour le lancement du noyau Linux :
 
@@ -114,7 +114,7 @@ Par défaut, Linux gère iommu et selon le contexte va décider de l'activer ou 
     GRUB_CMDLINE_LINUX="crashkernel=auto rd.lvm.lv=centos_fichesproduits/root rd.lvm lv=centos_fichesproduits/swap rhgb quiet iommu=force"
 
 
-## Blocage du chargement des modules Linux supplémentaires
+## 1.4 Blocage du chargement des modules Linux supplémentaires
 
 Linux est un noyau de type monolithique modulaire, c'est-à-dire que tous les services (systèmes et utilisateurs) sont gérés dans le même espace d'adressage.
 
@@ -140,7 +140,7 @@ Ou bien, une prise en compte pour le prochain démarrage :
 
 # 2. Les consoles virtuelles
 
-## Introduction
+## 2.1 Introduction
 
 Elles sont les **premiers éléments d'interaction** avec l'utilisateur après le processus de démarrage.
 
@@ -148,7 +148,7 @@ Nous verrons comment vérifier que la **connexion root est empêchée par défau
 
 Enfin, nous verrons **comment redémarrer le serveur à partir du raccourci clavier CTRL+ALT+FN** et ses risques.
 
-## Les accès aux consoles virtuelles
+## 2.2 Les accès aux consoles virtuelles
 
 > Elles sont un système interne au noyau. Elles permettent de recevoir ou d'émettre un message sous l'apparence d'un périphérique. 
 >
@@ -237,7 +237,7 @@ Le module **pam_faildelay.so** (deuxième ligne du fichier ci-dessus) permet de 
 
 > 🚸 **RECOMMANDATION-WARNING** (Défense en profondeur) : Augmentez l'intervalle minimal de temps entre chaque tentative de connexion sur le module **pam_faildelay.so** du fichier **`/etc/pam.d/system-auth`** à 5-10 secondes pour ralentir les attaques par diction.
 
-## Le raccourci CTRL+ALT+SUPPR dangereux
+## 2.3 Le raccourci CTRL+ALT+SUPPR dangereux
 
 Linux est le descendant d'une longue lignée d'OS. Sur Unix, l'administrateur pouvait lancer certaines commandes avec une combinaison de touches sur le clavier de la console. Elles étaient nommées **Secure Attention Key** (SAK), ou **Magic System Request Key** (MSRK).
 
@@ -260,11 +260,11 @@ Aujourd'hui, elle se traduit le plus souvent par un ordre de redémarrage de la 
 
 # 3. Le mode de démarrage du serveur
 
-## Introduction
+## 3.1 Introduction
 
 Nous allons voir les services qui sont lancés avec la machine, pour en faire une liste et suggérer d'éventuelles suppressions.
 
-## La cible de démarrage configurée par défaut
+## 3.2 La cible de démarrage configurée par défaut
 
 Le traditionnel gestionnaire de démarrage Linux **System V** se voit progressivement remplacé par le nouveau gestionnaire **systemd**, ce qui a susciter de nombreux débats.
 
@@ -340,7 +340,7 @@ Les cibles qui ouvrent des services pas indispensables au serveur doivent être 
 
 Chaque **cible** définit la liste des services à lancer automatiquement lors du démarrage de la machine.
 
-## La cible par défaut du système
+## 3.3 La cible par défaut du système
 
     [root@machine ~]# ls -lrtha /etc/systemd/system/multi-user.target.wants/
     total 8,0K
