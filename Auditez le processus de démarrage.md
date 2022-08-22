@@ -3,7 +3,7 @@ Les résultats des commandes citées dans les paragraphes qui suivent sont tiré
 
 # 1. Le bootloader, les options du noyaux et ses modules
 
-### Introduction
+## Introduction
 
 ## Le processus de démarrage et le bootloader
 
@@ -14,7 +14,7 @@ Les résultats des commandes citées dans les paragraphes qui suivent sont tiré
 
 # 2. Les consoles virtuelles
 
-### Introduction
+## Introduction
 
 Elles sont les **premiers éléments d'interaction** avec l'utilisateur après le processus de démarrage.
 
@@ -134,7 +134,7 @@ Aujourd'hui, elle se traduit le plus souvent par un ordre de redémarrage de la 
 
 # 3. Le mode de démarrage du serveur
 
-### Introduction
+## Introduction
 
 Nous allons voir les services qui sont lancés avec la machine, pour en faire une liste et suggérer d'éventuelles suppressions.
 
