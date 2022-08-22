@@ -5,12 +5,138 @@ Les résultats des commandes citées dans les paragraphes qui suivent sont tiré
 
 ## Introduction
 
+Voyons la sécurité du bootloader, les options du noyau et le chargement dynamique des modules du noyau.
+
 ## Le processus de démarrage et le bootloader
+Sous Linux, le standard c'est Grub en version 2, il sert à lister les systèmes d'exploitations disponibles
+sur l'ordinateur à choisir, ou encore de lancer par défaut un de ces systèmes.
+
+    CentOS Linux (3.10)
+    CentOS Linux (0-rescue)
+
+Les deux entrées de boot concernent le système Linux CentOS mais le second est un mode dégradé (rescue).
+
+> Grub2 dispose de son propre shell permettant d'intéragir pendant le processus de démarrage et de modifier, entre autres, les options de lancement du noyau Linux. 
+> Options très utiles, mais quelqu'un avec un accès physique peut redémarrer le système et ainsi avoir accès au shell et lancer le noyau avec des options pour par exemple obtenir une invite de commande en compte privilégié.
+
+Fichier de configuration principal : /boot/grub2/grub.cfg -> qui est un condensé mis à jour de manière dynamique, à partir de l'arborescence "/etc/grub.d".
+
+Vérifications des droits des fichiers dans "/etc/grub.d" et propriétaires avec la commande `ls -lrtha /etc/grub.d/` :
+
+    [root@machine ~]# ls -lrtha /etc/grub.d/
+    total 84K
+    -rw-r--r--. 1 root root 483 21 oct. 2017 README
+    -rwxr-xr-x. 1 root root 216 21 oct. 2017 41_custom
+    -rwxr-xr-x. 1 root root 214 21 oct. 2017 40_custom
+    -rwxr-xr-x. 1 root root 11K 21 oct. 2017 30_os-prober
+    -rwxr-xr-x. 1 root root 2,5K 21 oct. 2017 20_ppc_terminfo
+    -rwxr-xr-x. 1 root root 11K 21 oct. 2017 20_linux_xen
+    -rwxr-xr-x. 1 root root 11K 21 oct. 2017 10_linux
+    -rwxr-xr-x. 1 root root 232 21 oct. 2017 01_users
+    -rwxr-xr-x. 1 root root 8,5K 21 oct. 2017 00_header
+    -rwxr-xr-x. 1 root root 1,1K 29 oct. 2017 00_tuned
+    drwx------. 2 root root 182 27 mars 09:31 .
+    drwxr-xr-x. 79 root root 8,0K 4 mai 13:56 ..
+
+Normalement, c'est "root:root" pur tous les fichiers MAIS, droits 755 :
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Passez les droits sur tous les fichiers à 700.
+>
+> Par exemple, avec la commande suivante : `chmod -R 700 /etc/grub.d`
+
+La valeur 700 permet la lecture, l'écriture et l'exécution uniquement par le propriétaire des fichiers, ici **root**.
+
+De plus, dans l'arborescence, les fichiers numérotés de 10 à 40 servent principalement à configurer les propositions de démarrage présentées à l'utilisateur.
+
+Le fichier **01_users** est codifié pour contenir les informations d'authentification qui protègent l'accès au shell de Grub.
+
+    [root@machine ~]# cat /etc/grub.d/01_users
+    #!/bin/sh -e
+    cat << EOF
+    if [ -f \${prefix}/user.cfg ]; then
+    source \${prefix}/user.cfg
+    if [ -n "\${GRUB2_PASSWORD}" ]; then
+    set superusers="root"
+    export superusers
+    password_pbkdf2 root \${GRUB2_PASSWORD}
+    fi
+    fi
+    EOF
+
+Le code contenu dans ce fichier propose de créer un utilisateur root avec les droits superusers ainsi qu'un mot de passe crypté en fonction d'un fichier ${prefix}/user.cfg, qui n'existe pas par défaut.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Créez un utilisateur et son mot de passe chiffré dans le fichier **01_users** afin de protéger l'accès au shell de Grub par une authentification.
+>
+> Par exemple, avec les commandes suivantes : `grub2-mkpasswd-pbkdf2`, `nano /etc/grub.d/01_users` et `grub2-mkconfig -o /boot/grub2/grub.cfg`.
+
+    [root@machines grub.d]# grub2-mkpasswd-pbkdf2
+    Entrez le mot de passe :
+    Entrez de nouveau le mot de passe :
+    Le hachage PBKDF2 du mot de passe est grub.pbkdf2.sha512.10000.5DE21XXXXXXXXXXX
+
+    [root@machines grub.d]# nano /etc/grub.d/01_users
+    set superusers="admin"
+    password_pbkdf2 admin grub.pbkdf2.sha512.10000.5DE21XXXXXXXXXXX
+
+    [root@machines grub.d]# grub2-mkconfig -o /boot/grub2/grub.cfg
 
 ## Options par défaut du noyau Linux
 
+Le fichier **/boot/grub2/grub.cfg** rassemble les fichiers contenus dans **/etc/grub.d**. Consultons le fichier et affichons les options utilisées pour le lancement du noyau Linux :
+
+    [root@machine ~]# grep linuz /boot/grub2/grub.cfg | head -1
+    linux16 /vmlinuz-3.10.0-862.el7.x86_64 root=/dev/mapper/centos_fichesproduits-root ro crashkernel=auto rd.lvm.lv=centos_fichesproduits/root rd.lvm.lv=centos_fichesproduits swap rhgb quiet LANG=fr_FR.UTF-8
+
+En plus des options liées au partitionnement LVM et configuration des variables d'environnement (langue, encodage), deux **options** sont passées au noyau : **rhgb** et **quiet**.
+
+> Elles servent au confort de l'utilisateur car elles offrent un écran graphique pendant le démarrage, cachant ainsi la plupart des messages du noyau pendant le processus.
+
+Ces options sont configurées dans **/etc/default/grub** :
+
+    [root@machine grub.d]# cat /etc/default/grub
+    GRUB_TIMEOUT=5
+    GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+    GRUB_DEFAULT=saved
+    GRUB_DISABLE_SUBMENU=true
+    GRUB_TERMINAL_OUTPUT="console"
+    GRUB_CMDLINE_LINUX="crashkernel=auto rd.lvm.lv=centos_fichesproduits/root rd.lvm.lv=centos_fichesproduits/swap rhgb quiet"
+    GRUB_DISABLE_RECOVERY="true"
+
+Dans le cadre de l'exploitation de systèmes virtualisés, il existe un service géré directement par le noyau Linux : **iommu**. Il permet de protéger la mémoire contre des accès non-contrôlés, issus des périphériques du système.
+
+Par défaut, Linux gère iommu et selon le contexte va décider de l'activer ou non. Il est recommandé de **forcer l'activation de ce service** en passant une option supplémentaire lors du démarrage du noyau.
+
+> 🚸 **RECOMMANDATION-WARNING** (Minimisation) : Passez l'option `iommu=force` au noyau lors du démarrage de Linux.
+>
+> Par exemple, en modifiant le fichier `/etc/default/grub` dans sa ligne **GRUB_CMDLINE_LINUX**, en rajoutant l'option après **quiet** :
+
+    [root@machine ~]# nano /etc/default/grub
+    GRUB_CMDLINE_LINUX="crashkernel=auto rd.lvm.lv=centos_fichesproduits/root rd.lvm lv=centos_fichesproduits/swap rhgb quiet iommu=force"
+
+
 ## Blocage du chargement des modules Linux supplémentaires
 
+Linux est un noyau de type monolithique modulaire, c'est-à-dire que tous les services (systèmes et utilisateurs) sont gérés dans le même espace d'adressage.
+
+Cette fonctionnalité est très intéressante lorsqu'il s'agit de modéliser un système d'exploitation spécifique, **en ajoutant et en retirant à chaud** des modules pour notre besoin.
+
+Mais sur une machine d'exploitation -> faille potentielle car elle permet de modifier un noyau. On vérifie qu'il est possible de charger ces modules supplémentaires avec la commande `sysctl kernel.modules_disabled` :
+
+    [root@machine ~]# sysctl kernel.modules_disabled
+    kernel.modules_disabled = 0
+
+Par défaut, la valeur est **souvent à 0**. Donc le chargement de modules supplémentaires est **autorisé**.
+
+> 🚸 **RECOMMANDATION-WARNING** (Minimisation) : Bloquer le chargement de modules via la commande `sysctl kernel.modules_disabled=1`.
+
+Voici la commande pour l'exécution en cours :
+
+    [root@machine ~]# sysctl -w kernel.modules_disabled=1
+    kernel.modules_disabled = 1
+
+Ou bien, une prise en compte pour le prochain démarrage :
+
+    [root@machine ~]# echo "kernel.modules_disabled = 1" >> /etc/sysctl.conf
 
 # 2. Les consoles virtuelles
 
