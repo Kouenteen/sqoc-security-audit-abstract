@@ -1,3 +1,6 @@
+# 0. Informations diverses
+Les résultats des commandes citées dans les paragraphes qui suivent sont tirés directement du cours "Auditez la sécurité d'un système d'exploitation" donc ils peuvent varier en fonction de votre machine.
+
 # 1. Le bootloader, les options du noyaux et ses modules
 
 ### Introduction
@@ -129,7 +132,7 @@ Aujourd'hui, elle se traduit le plus souvent par un ordre de redémarrage de la 
 > Nous pouvons aussi recompiler le noyau sans les combinaisons associées...
 
 
-# Le mode de démarrage du serveur
+# 3. Le mode de démarrage du serveur
 
 ### Introduction
 
@@ -137,3 +140,186 @@ Nous allons voir les services qui sont lancés avec la machine, pour en faire un
 
 ## La cible de démarrage configurée par défaut
 
+Le traditionnel gestionnaire de démarrage Linux **System V** se voit progressivement remplacé par le nouveau gestionnaire **systemd**, ce qui a susciter de nombreux débats.
+
+Quoi qu'il en soit, les principales distributions (RedHat/CentOS, Debian/Ubuntu) proposent depuis leur dernière version, un mode transitoire System V basé sur systemd.
+
+Le gestionnaire **systemd** va gérer beaucoup d'aspects de Linux. On va se concentrer uniquement sur la manière dont il gère le lancement automatique des services de la machine lors de son démarrage.
+
+> Les **_runlevels_** de System V sont désormais remplacés par les **cibles** de systemd.
+
+![Équivalent runlevels System V et cibles systemd](/systemv_target.png "Cibles systemd par rapport aux runlevels System V")
+
+Sur un serveur avec System V, pour connaître le **_runlevel_** configuré par défaut, il suffit de consulter **/etc/inittab**. Sur un système dit **transitoire** le fichier existe toujours et, nous pouvons le consulter :
+
+    [root@machine ~]# more /etc/inittab
+    # inittab is no longer used when using systemd.
+    #
+    # ADDING CONFIGURATION HERE WILL HAVE NO EFFECT ON YOUR SYSTEM.
+    #
+    # Ctrl-Alt-Delete is handled by /usr/lib/systemd/system/ctrl-alt-del.target
+    #
+    # systemd uses 'targets' instead of runlevels. By default, there are two main targets:
+    #
+    # multi-user.target: analogous to runlevel 3
+    # graphical.target: analogous to runlevel 5
+    #
+    # To view current default target, run:
+    # systemctl get-default
+    #
+    # To set a default target, run:
+    # systemctl set-default TARGET.target
+    #
+
+En effet, il faut passer à systemd. Le fichier indique également la commande à exécuter pour obtenir la **cible** par défaut de la machine :
+
+    [root@machine ~]# systemctl get-default
+    multi-user.target
+
+La cible par défaut est **multi-user.target** qui correspond anciennement au **runlevel3**.
+
+Obtenir la liste de toutes les cibles chargées sur le système :
+
+    [root@machine ~]# systemctl list-units --type target
+    UNIT LOAD ACTIVE SUB DESCRIPTION
+    basic.target loaded active active Basic System
+    cryptsetup.target loaded active active Local Encrypted Volumes
+    getty.target loaded active active Login Prompts
+    local-fs-pre.target loaded active active Local File Systems (Pre)
+    local-fs.target loaded active active Local File Systems
+    multi-user.target loaded active active Multi-User System
+    network-online.target loaded active active Network is Online
+    network.target loaded active active Network
+    paths.target loaded active active Paths
+    remote-fs.target loaded active active Remote File Systems
+    slices.target loaded active active Slices
+    sockets.target loaded active active Sockets
+    sound.target loaded active active Sound Card
+    swap.target loaded active active Swap
+    sysinit.target loaded active active System Initialization
+    timers.target loaded active active Timers
+
+    LOAD = Reflects whether the unit definition was properly loaded.
+    ACTIVE = The high-level unit activation state, i.e. generalization of SUB.
+    SUB = The low-level unit activation state, values depend on unit type.
+
+    16 loaded units listed. Pass --all to see loaded but inactive units, too.
+    To show all installed unit files use 'systemctl list-unit-files'.
+
+La plupart des **cibles listées ici** sont indispensables (sauf sound.target).
+
+Il n'y a pas de recommandations à faire ici. Il pourrait y avoir la cible graphical.target, qui propose de démarrer le serveur en mode graphique.
+
+Les cibles qui ouvrent des services pas indispensables au serveur doivent être supprimées.
+
+Chaque **cible** définit la liste des services à lancer automatiquement lors du démarrage de la machine.
+
+## La cible par défaut du système
+
+    [root@machine ~]# ls -lrtha /etc/systemd/system/multi-user.target.wants/
+    total 8,0K
+    lrwxrwxrwx. 1 root root 40 27 mars 09:30 remote-fs.target -> /usr/lib/systemd/system/remote-fs.target
+    lrwxrwxrwx. 1 root root 46 27 mars 09:30 rhel-configure.service -> /usr/lib/systemd/system/rhel-configure.service
+    lrwxrwxrwx. 1 root root 37 27 mars 09:30 crond.service -> /usr/lib/systemd/system/crond.service
+    lrwxrwxrwx. 1 root root 46 27 mars 09:30 NetworkManager.service -> /usr/lib/systemd/system/NetworkManager.service
+    lrwxrwxrwx. 1 root root 37 27 mars 09:30 tuned.service -> /usr/lib/systemd/system/tuned.service
+    lrwxrwxrwx. 1 root root 42 27 mars 09:30 irqbalance.service -> /usr/lib/systemd/system/irqbalance.service
+    lrwxrwxrwx. 1 root root 39 27 mars 09:30 rsyslog.service -> /usr/lib/systemd/system/rsyslog.service
+    lrwxrwxrwx. 1 root root 37 27 mars 09:30 kdump.service -> /usr/lib/systemd/system/kdump.service
+    lrwxrwxrwx. 1 root root 36 27 mars 09:30 sshd.service -> /usr/lib/systemd/system/sshd.service
+    lrwxrwxrwx. 1 root root 38 27 mars 09:30 auditd.service -> /usr/lib/systemd/system/auditd.service
+    lrwxrwxrwx. 1 root root 39 27 mars 09:30 postfix.service -> /usr/lib/systemd/system/postfix.service
+    lrwxrwxrwx. 1 root root 39 27 mars 09:30 chronyd.service -> /usr/lib/systemd/system/chronyd.service
+    lrwxrwxrwx. 1 root root 39 27 mars 09:46 mariadb.service -> /usr/lib/systemd/system/mariadb.service
+    lrwxrwxrwx. 1 root root 37 27 mars 09:46 httpd.service -> /usr/lib/systemd/system/httpd.service
+    lrwxrwxrwx 1 root root 39 27 mars 09:50 proftpd.service -> /usr/lib/systemd/system/proftpd.service
+    drwxr-xr-x. 11 root root 4,0K 27 mars 09:51 ..
+    drwxr-xr-x. 2 root root 4,0K 27 mars 09:51 .
+
+On peut constater la présence de services qui ne sont pas indispensables au serveur, comme **postfix.service**, **chronyd.service** ou encore **tuned.service**.
+
+Il faut stopper ces services inutiles aux **contextes fonctionnel et opérationnel du serveur**. Rien de plus frustrant qu'un serveur corrompu par un/des services inutiles.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Minimisation) : Supprimez les services inutiles démarrés automatiquement avec le serveur en passant par la cible par défaut.
+>
+> Par exemple, avec la commande suivante : **`systemctl stop postfix.service`** (pour l'exécution courante)
+>
+> Pour le lancement automatique de la cible multi-user.target : **`systemctl disable postfix.service`**
+
+La cible **multi-user.target** configure elle-même des dépendances dans son fichier de config :
+
+    [root@machine ~]# cat /lib/systemd/system/multi-user.target
+    # This file is part of systemd.
+    #
+    # systemd is free software; you can redistribute it and/or modify it
+    # under the terms of the GNU Lesser General Public License as published by
+    # the Free Software Foundation; either version 2.1 of the License, or
+    # (at your option) any later version.
+
+    [Unit]
+    Description=Multi-User System
+    Documentation=man:systemd.special(7)
+    Requires=basic.target
+    Conflicts=rescue.service rescue.target
+    After=basic.target rescue.service rescue.target
+    AllowIsolate=yes
+
+Le mot-clé **Requires** indique ici que la cible **basic.target** sera exécutée avant **multi-user.target**. Elle même a des dépendances :
+
+    [root@machine ~]# cat /lib/systemd/system/basic.target
+    # This file is part of systemd.
+    #
+    # systemd is free software; you can redistribute it and/or modify it
+    # under the terms of the GNU Lesser General Public License as published by
+    # the Free Software Foundation; either version 2.1 of the License, or
+    # (at your option) any later version.
+
+    [Unit]
+    Description=Basic System
+    Documentation=man:systemd.special(7)
+
+    Requires=sysinit.target
+    After=sysinit.target
+    Wants=sockets.target timers.target paths.target slices.target
+    After=sockets.target paths.target slices.target
+
+Les mots-clés **After** et **Wants** indiquent les dépendances. Se référer à la documentation de systemd pour voir les différents types de dépendance. (https://www.freedesktop.org/software/systemd/man/systemd.unit.html)
+
+Quoi qu'il en soit, on va lister l'ensemble des services et leur status actuel :
+
+    [root@machine ~]# systemctl list-unit-files --type service
+    UNIT FILE STATE
+    auditd.service enabled
+    autovt@.service enabled
+    blk-availability.service disabled
+    brandbot.service static
+    chrony-dnssrv@.service static
+    chrony-wait.service disabled
+    chronyd.service enabled
+    console-getty.service disabled
+    console-shell.service disabled
+    container-getty@.service static
+    cpupower.service disabled
+    crond.service enabled
+    dbus-org.freedesktop.hostname1.service static
+    ...
+
+Tous les services avec le statut **enabled** seront lancés automatiquement sur le serveur.
+
+> 🚸 **RECOMMANDATION-WARNING** (Minimisation) : Supprimez les services inutiles démarrés automatiquement en passant par les dépendances de la cible par défaut.
+
+
+# 4. Résumé des recommandations de toute cette partie
+
+| Recommandation      | Type | Principe   |
+| ----------- | ----------- | -----------|
+| Passer les droits sur l'arborescence **/etc/grub.d/** à **700**      | ❌ CRITICAL       | Moindre privilège |
+| Créer un user et son **mot de passe chiffré** dans le fichier **01_users** afin de protéger l'accès au `shell` de GRUB2 par une authentification  | ❌ CRITICAL        | Minimisation |
+| Passer l'option **iommu=force** au noyau lors du démarrage de Linux      | 🚸 WARNING       | Minimisation |
+| Bloquer le chargement de modules supplémentaires via la commande **sysctl kernel.modules_disabled=1**   | 🚸 WARNING        | Minimisation |
+| Vider le contenu du fichier **/etc/securetty** afin de bloquer toute connexion avec l'utilisateur root depuis une console virtuelle      | ❌ CRITICAL       | Défense en profondeur |
+| Augmenter l'intervalle minimal de temps entre chaque tentative de connexion sur le module **pam_faildelay.so** du fichier **/etc/pam.d/system-auth** à 5 ou 10 secondes afin de ralentir les attaques par dictionnaire   | 🚸 WARNING        | Défense en profondeur |
+| Désactiver la combinaison **Ctrl+Alt+Supp** sur le serveur pour prévenir tout redémarrage depuis un accès physique à la machine      | ❌ CRITICAL       | Défense en profondeur |
+| Désactiver les **Magic System Request Keys**   | 🚸 WARNING        | Défense en profondeur |
+| Supprimer les **services inutiles** démarrés automatiquement avec le serveur en passant par **la cible par défaut**      | ❌ CRITICAL       | Minimisation |
+| Supprimer les **services inutiles** démarrés automatiquement avec le serveur en passant par **les dépendances de la cible par défaut**   | 🚸 WARNING        | Minimisation |
