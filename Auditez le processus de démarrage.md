@@ -241,7 +241,7 @@ Le module **pam_faildelay.so** (deuxième ligne du fichier ci-dessus) permet de 
 
 Linux est le descendant d'une longue lignée d'OS. Sur Unix, l'administrateur pouvait lancer certaines commandes avec une combinaison de touches sur le clavier de la console. Elles étaient nommées **Secure Attention Key** (SAK), ou **Magic System Request Key** (MSRK).
 
-Le raccourci CTRL+ALT+SUPPR est un héritage des anciennes commandes SAK. Elle permettait à l'époque de garantir un prompt initial sans usurpation d'identité.
+Le raccourci **CTRL+ALT+SUPPR** est un héritage des anciennes commandes SAK. Elle permettait à l'époque de garantir un prompt initial sans usurpation d'identité.
 
 Aujourd'hui, elle se traduit le plus souvent par un ordre de redémarrage de la machine -> ce qui n'est pas acceptable.
 
@@ -253,7 +253,7 @@ Aujourd'hui, elle se traduit le plus souvent par un ordre de redémarrage de la 
 >
 > Par exemple, avec la commande suivante : (pour l'exécution courante) `sysctl -w kernel.sysrq = 0`
 >
-> Pour la prise en compte au prochain démarrage : `echo "kernel.sysrq=0" >> /etc/sysctl.conf``
+> Pour la prise en compte au prochain démarrage : `echo "kernel.sysrq=0" >> /etc/sysctl.conf`
 >
 > Nous pouvons aussi recompiler le noyau sans les combinaisons associées...
 

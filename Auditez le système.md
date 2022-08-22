@@ -152,3 +152,182 @@ Pas de recommandation car la présence d'un périphérique de type bloc est comm
 Analysons plus end étail le partitionnement et les systèmes de fichiers des périphériques de type bloc. On y verra les défauts de droits et mauvaises options de montage des disques sur le systèmes.
 
 ## 2.2 Le partitionnement du disque dur
+
+Le partitionnement des périphériques de type bloc s'effectue généralement lors de l'installation du système. 
+
+Toutes les distributions proposent un mode de partitionnement dit **automatique** qui sert à facilitier le processus d'installation.
+
+Le niveau de sécurité de ce mode est bien évidemment faible.
+
+Reprenons le disque SCSI détecté juste avant, et analysons son partitionnement avec la commande `fdisk -l` :
+
+    [root@machine ~]# fdisk -l
+
+    Disque /dev/sda : 8589 Mo, 8589934592 octets, 16777216 secteurs
+    Unités = secteur de 1 × 512 = 512 octets
+    Taille de secteur (logique / physique) : 512 octets / 512 octets
+    taille d'E/S (minimale / optimale) : 512 octets / 512 octets
+    Type d'étiquette de disque : dos
+    Identifiant de disque : 0x000cfef5
+
+    Périphérique Amorçage Début Fin Blocs Id. Système
+    /dev/sda1 * 2048 2099199 1048576 83 Linux
+    /dev/sda2 2099200 16777215 7339008 8e Linux LVM
+
+    Disque /dev/mapper/centos_machine-root : 6652 Mo, 6652166144 octets, 12992512 secteurs
+    Unités = secteur de 1 × 512 = 512 octets
+    Taille de secteur (logique / physique) : 512 octets / 512 octets
+    taille d'E/S (minimale / optimale) : 512 octets / 512 octets
+
+
+    Disque /dev/mapper/centos_machine-swap : 859 Mo, 859832320 octets, 1679360 secteurs
+    Unités = secteur de 1 × 512 = 512 octets
+    Taille de secteur (logique / physique) : 512 octets / 512 octets
+    taille d'E/S (minimale / optimale) : 512 octets / 512 octets
+
+On peut constater que le disque a deux partitions (**sda1** et **sda2**).
+
+La première dispose du **flag** d'amorçage et d'un système de fichier de type Linux (83) ; la seconde d'un fichier de type Linux LVM (8e).
+
+Il existe donc du LVM sur ce disque **sda**, vérifions le mapping des potentiels volumes avec la commande `lsblk` :
+
+    [root@machine ~]# lsblk
+    NAME MAJ:MIN RM SIZE RO TYPE MOUNTPOINT
+    sda 8:0 0 8G 0 disk
+    ├─sda1 8:1 0 1G 0 part /boot
+    └─sda2 8:2 0 7G 0 part
+    ├─centos_machine-root 253:0 0 6,2G 0 lvm /
+    └─centos_machine-swap 253:1 0 820M 0 lvm [SWAP]
+
+Les deux volumes logiques sont bien accrochés à la partition LVM.
+
+Nous pouvons relever un défaut de sécurité important avec la commande `blkid chemindudisque` :
+
+    [root@machine ~]# blkid /dev/sda2
+    /dev/sda2: UUID="mKkT60-aw2n-pcr0-032A-j0ru-gfRf-XBHbni" TYPE="LVM2_member"
+
+La commande **blkid** nous confirme que la partition **sda2** est bien membre d'un groupe LVM mais qu'elle n'est pas chiffrée sinon son type serait **crypto_LUKS**.
+
+Sur une machine sensible, il faut chiffrer les partitions pour rendre illisible leur contenu, très utile en cas de vol.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Défense en profondeur) : Vérifiez le chiffrement des partitions sensibles du système.
+
+De plus, on peut constater que tout le système (sauf _à priori_ le noyau) tient dans **une seule partition**.
+
+Or, le partitionnement doit permettre **d'isoler les composants du système de fichiers**.
+
+De cette façon, il n'est **pas possible** pour une application quelconque de **saturer de fichiers la partition système** et provoquer une interruption de service.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Défense en profondeur) : Vérifiez que le partitionnement isole et protège les composants du système.
+
+Il est recommandé d'isoler :
+- **/boot** : qui contient le noyau,
+- **/tmp** : qui dispose de droits spéciaux et concerne les fichiers temporaires,
+- **/home** : qui contient les répertoires personnels des comptes utilisateurs,
+- **/var** : qui contient les données dites _variables_, notamment les applications web dans notre cas,
+- **/var/log** : qui contient les fichiers de trace du système.
+
+## 2.3 Les options de montage des partitions
+
+Cette partie va être rapide car il n'y a que deux partitions et que Linux propose des options pour les points de montage des partitions. Parmi les plus importantes, nous pouvons citer :
+
+| Option      | Description |
+| ----------- | ----------- |
+| async/sync      | Les entrées/sorties sont asynchrones/synchrones |
+| noauto/auto      | Peut être montée automatiquement ou non |
+| dev/nodev      | Supporte ou non les fichiers de type périphérique |
+| exec/noexec      | Permet l'exécution ou non de fichier |
+| suid/nosuid      | Compatible avec le bit S-[U/G]ID |
+| ro/rw      | Lecture seule ou lecture/écriture |
+| user/nouser      | Peut être montée par un utilisateur privilégié ou non |
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Vérifiez les options des points de montage des systèmes de fichiers.
+>
+> Par exemple, via la commande suivante `mount | grep /dev/mapper` :
+
+    [root@machine ~]# mount | grep /dev/mapper
+    /dev/mapper/centos_fichesproduits-root on / type xfs (rw,relatime,attr2,inode64,noquota)
+
+Ces options sont regroupées dans un libellé nommé **defaults**, qui est indiqué dans le fichier **/etc/fstab**.
+
+Celui-ci permet de monter automatiquement des systèmes de fichiers au démarrage.
+
+    [root@machine ~]# more /etc/fstab
+
+    #
+    # /etc/fstab
+    # Created by anaconda on Wed Mar 27 09:29:55 2019
+    #
+    # Accessible filesystems, by reference, are maintained under '/dev/disk'
+    # See man pages fstab(5), findfs(8), mount(8) and/or blkid(8) for more info
+    #
+    /dev/mapper/centos_machine-root / xfs defaults 0 0
+    UUID=02dc2283-eb61-43d6-9aa2-92be25654a26 /boot xfs defaults 0 0
+    /dev/mapper/centos_machine-swap swap swap defaults 0 0
+
+Les options du libellé **defaults** sont :
+- **rw**
+- **suid**
+- **dev**
+- **exec**
+- **auto**
+- **nouser**
+- **async**
+
+En reprenant le partitionnement _idéal_ évoqué ci-dessus, les options de montage seraient :
+
+| Montage      | Option |
+| ----------- | ----------- |
+| /tmp      | rw,nosuid,nodev,noexec |
+| /home      | rw,nosuid,nodev,noexec |
+| /var      | rw,nosuid,nodev,noexec,sync |
+| /var/log      | rw,nosuid,nodev,noexec,sync |
+
+Il n'y a pas d'intérêt de donner aux points de montage (ou du moins à la plupart d'entre eux), les droits de fichiers spéciaux, montages de périphériques ou d'exécution.
+
+En effet, il existe des partitions spécifiques et normalisées pour ça (**/usr/lib**, **/mnt** par exemple).
+
+La partition **/boot** n'est pas ci-dessus car elle est particulière...
+
+## 2.4 La partition de boot
+
+La partition **/boot** est très sensible car elle contient le noyau de Linux et la configuration dynamique de Grub.
+
+    [root@machine ~]# ls -lrtha /boot/
+    total 89M
+    -rw-------. 1 root root 3,3M 20 avril 2018 System.map-3.10.0-862.el7.x86_64
+    -rw-r--r--. 1 root root 145K 20 avril 2018 config-3.10.0-862.el7.x86_64
+    -rw-r--r--. 1 root root 166 20 avril 2018 .vmlinuz-3.10.0-862.el7.x86_64.hmac
+    -rwxr-xr-x. 1 root root 6,0M 20 avril 2018 vmlinuz-3.10.0-862.el7.x86_64
+    -rw-r--r--. 1 root root 298K 20 avril 2018 symvers-3.10.0-862.el7.x86_64.gz
+    drwxr-xr-x. 3 root root 17 27 mars 09:30 efi
+    drwxr-xr-x. 2 root root 27 27 mars 09:30 grub
+    -rw-------. 1 root root 53M 27 mars 09:33 initramfs-0-rescue-743eb5ea9918447198668f35891e3d86.img
+    -rwxr-xr-x. 1 root root 6,0M 27 mars 09:33 vmlinuz-0-rescue-743eb5ea9918447198668f35891e3d86
+    dr-xr-xr-x. 5 root root 4,0K 27 mars 09:34 .
+    -rw-------. 1 root root 21M 27 mars 09:34 initramfs-3.10.0-862.el7.x86_64.img
+    drwx------. 5 root root 97 27 mars 09:34 grub2
+    dr-xr-xr-x. 17 root root 233 27 mars 09:48 ..
+
+Le fichier **System.map** contient la table des symboles utilisés par le noyau.
+
+C'est à dire, une liste des variables et fonctions associées à leurs adresses mémoire respectives. En quelque sorte, les **pages jaunes du noyau Linux**.
+
+Ce fichier est très souvent la cible d'attaques visant à exploiter les failles dans le code du noyau.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Vérifiez la protection de la partition **/boot**.
+
+Pour toutes ces raisons, elle doit bénéficier d'une attention particulière. Dans le meilleur des cas, il faut attribuer l'option **noauto** afin qu'elle ne soit pas montée automatiquement.
+
+Cependant, dans le cas où nous devrions la monter pour par exemple changer de noyau, il faudrait alors la monter avec les options **ro**, **nosuid**, **nodev**, **noexec** et la passer à *rw* pour l'utilisateur **root** uniquement lorsque nécessaire.
+
+    [root@machine ~]# ls -lrth / | grep boot
+    dr-xr-xr-x. 5 root root 4,0K 27 mars 09:34 boot
+
+Ici, la partition **/boot** ne devrait être accessible qu'à l'utilisateur **/root**.
+
+# 3. Les mots de passes, comptes utilisateurs, droits spéciaux et mises à jour de sécurité
+
+## 3.1 Introduction
+
+## 3.2 Le processus de mot de passe
