@@ -330,4 +330,178 @@ Ici, la partition **/boot** ne devrait être accessible qu'à l'utilisateur **/r
 
 ## 3.1 Introduction
 
+Sur Linux, le mot de passe est la donnée la plus sensible. Il permet d'authentifier ou de vérifier l'identité d'un compte utilisateur, et donc de bénéficier de ses droits sur le système.
+
+Les mots de passe sont gérés par la commande **passwd** et doivent s'appuyer sur le module **PAM** de Linux.
+
 ## 3.2 Le processus de mot de passe
+
+    [root@machine ~]# ldd /bin/passwd | grep pam
+    libpam.so.0 => /lib64/libpam.so.0 (0x00007f84fd844000)
+    libpam_misc.so.0 => /lib64/libpam_misc.so.0 (0x00007f84fd640000)
+
+Le module **PAM** est responsable du stockage chiffré des mots de passes sur le système de fichiers. Historiquement, le fichier **/etc/passwd** contenait la liste des utilisateurs ET leurs mots de passe.
+
+Or, ce fichier est accessible à tout le monde en lecture seule, ce qui permet à un attaquant d'en faire une copie et de déchiffrer les mots de passes.
+
+Désormais, Linux utilise le principe de mots de passes dits **shadow**. Les mots de passes sont en fait stockés dans un fichier **/etc/shadow** qui est lisible uniquement par **root**.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Défense en profondeur) : Vérifiez que les mots de passe du module PAM sont en mode shadow.
+>
+> Par exemple, avec la commande `grep shadow /etc/pam.d/*` :
+
+    [root@machine ~]# grep shadow /etc/pam.d/*
+    /etc/pam.d/password-auth:password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+    /etc/pam.d/password-auth-ac:password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+    /etc/pam.d/system-auth:password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+    /etc/pam.d/system-auth-ac:password sufficient pam_unix.so sha512 shadow nullok try_first_pass use_authtok
+
+Le module **PAM** garantit également un minimum de **_robustesse_** des mots de passe. La librairie qui vérifie la robustesse est **pam_pwquality.so**.
+
+    [root@machine ~]# grep pam_pwquality /etc/pam.d/*
+    /etc/pam.d/password-auth:password requisite pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+    /etc/pam.d/password-auth-ac:password requisite pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+    /etc/pam.d/system-auth:password requisite pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+    /etc/pam.d/system-auth-ac:password requisite pam_pwquality.so try_first_pass local_users_only retry=3 authtok_type=
+
+Pour assurer la robustesse des mots de passe, il est possible de changer les valeurs par défaut du module **pam_pwquality** :
+
+> 🚸 **RECOMMANDATION-WARNING** (Défense en profondeur) : Vérifiez la robustesse des mots de passe avec le module **pam_pwquality**.
+>
+> Par exemple, en consultant son fichier `/etc/security/pwquality.conf`.
+
+| Configuration      | Description | Valeur par défaut |
+| ----------- | ----------- | ----------- |
+| difok      | Nombre de caractères dans le nouveau mot de passe, qui ne doivent pas être présents dans l'ancien | 5 |
+| minlen      | Longueur minimale | 9 (>6 obligatoire) |
+| ucredit      | Nombre de majuscules | 1 |
+| lcredit      | Nombre de minuscules | 1 |
+| dcredit      | Nombre de chiffres | 1 |
+| ocredit      | Nombre de caractère non alphanumériques | 1 |
+| maxrepeat      | Nombre maximal de caractères se répétant | 0 (désactivé) |
+
+
+## 3.3 Les comptes utilisateurs et leur mot de passe
+
+Le fichier contenant les utilisateurs est donc **/etc/passwd**.
+
+    [root@machine ~]# cat /etc/passwd
+    root:x:0:0:root:/root:/bin/bash
+    bin:x:1:1:bin:/bin:/sbin/nologin
+    daemon:x:2:2:daemon:/sbin:/sbin/nologin
+    ...
+    marketing:x:1000:1000:marketing:/home/marketing:/bin/bash
+    patrick:x:1001:1001::/home/patrick:/bin/bash
+    stephanie:x:1002:1002::/home/stephanie:/bin/bash
+    christophe:x:1003:1003::/home/christophe:/bin/bash
+    apache:x:48:48:Apache:/usr/share/httpd:/sbin/nologin
+    mysql:x:27:27:MariaDB Server:/var/lib/mysql:/sbin/nologin
+
+Le dernier champ (après le séparateur "**:**") indique le **_shell_** à exécuter lorsque l'utilisateur se connecte sur une console ou un terminal distant.
+
+Si la valeur du champ indique **/sbin/nologin**, le _shell_ exécuté renverra un message d'erreur et l'utilisateur ne pourra évidemment pas se connecter.
+
+Il est possible de filter les comptes qui peuvent se connecter :
+
+    [root@machine ~]# cat /etc/passwd | grep -v nologin
+    root:x:0:0:root:/root:/bin/bash
+    sync:x:5:0:sync:/sbin:/bin/sync
+    shutdown:x:6:0:shutdown:/sbin:/sbin/shutdown
+    halt:x:7:0:halt:/sbin:/sbin/halt
+    marketing:x:1000:1000:marketing:/home/marketing:/bin/bash
+    patrick:x:1001:1001::/home/patrick:/bin/bash
+    stephanie:x:1002:1002::/home/stephanie:/bin/bash
+    christophe:x:1003:1003::/home/christophe:/bin/bash
+
+On retrouve ici les comptes systèmes **sync**, **shutdown**, **halt** que l'on peut ignorer, et quatre comptes utilisateurs **marketing**, **patrick**, **stephanie** et **christophe** puis le compte super-utilisateur **root**.
+
+Considérons ici que les comptes utilisateurs sont tous configurés de la même façon. Pour obtenir des informations sur le mot de passe du compte **stephanie**, il faut utiliser la commande **`chage`** :
+
+    [root@machine ~]# chage -l stephanie
+    Dernier changement de mot de passe : mars 27, 2019
+    Fin de validité du mot de passe : jamais
+    Mot de passe désactivé : jamais
+    Fin de validité du compte : jamais
+    Nombre minimum de jours entre les changements de mot de passe : 0
+    Nombre maximum de jours entre les changements de mot de passe : 99999
+    Nombre de jours d'avertissement avant la fin de validité du mot de passe : 7
+
+Exemple typique de configuration par défaut, l'utilisateur n'est pas forcé de changer son mot de passe.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Défense en profondeur) : Vérifiez que les comptes utilisateurs pouvant se connecter, ont pour obligation de changer leur mot de passe régulièrement.
+>
+> Par exemple, avec la commande `chage -m 7 -M 90 -W 10 utilisateur`:
+
+    [root@machine ~]# chage -m 7 -M 90 -W 10 stephanie
+    [root@machine ~]# chage -l stephanie
+    Dernier changement de mot de passe : mars 27, 2019
+    Fin de validité du mot de passe : juin 25, 2019
+    Mot de passe désactivé : jamais
+    Fin de validité du compte : jamais
+    Nombre minimum de jours entre les changements de mot de passe : 7
+    Nombre maximum de jours entre les changements de mot de passe : 90
+    Nombre de jours d'avertissement avant la fin de validité du mot de passe : 10
+
+Il est possible de modifier les valeurs par défaut pour la gestion des mots de passe dans le fichier **/etc/login.defs**, pratique si l'admin système doit créer des utilisateurs supplémentaires.
+
+> 🚸 **RECOMMANDATION-WARNING** (Défense en profondeur) : Vérifiez les valeurs par défaut des attributs des mots de passe pour chaque compte utilisateur dans **/etc/login.defs** :
+
+    [root@machine ~]# cat /etc/login.defs | grep PASS
+    # PASS_MAX_DAYS Maximum number of days a password may be used.
+    # PASS_MIN_DAYS Minimum number of days allowed between password changes.
+    # PASS_MIN_LEN Minimum acceptable password length.
+    # PASS_WARN_AGE Number of days warning given before a password expires.
+    PASS_MAX_DAYS 99999
+    PASS_MIN_DAYS 0
+    PASS_MIN_LEN 5
+    PASS_WARN_AGE 7
+
+Ici, la période de validité du mot de passe est infinie par défaut. Il serait nécessaire au moins de modifier la directive **PASS_MAX_DAYS** à 90.
+
+## 3.4 Droits spéciaux - Lister les fichiers avec les attributs setuid, setgid et stickybit
+
+Prenons un exemple avec la commande **`passwd`** :
+
+    [root@machine ~]# ls -lrtha /bin/passwd
+    -rwsr-xr-x. 1 root root 28K 10 juin 2014 /bin/passwd
+
+La commande utilise **setuid** pour permettre à un utilisateur de la lancer avec le compte propriétaire de la commande (généralement **root**).
+
+C'est indispensable pour obtenir les privilèges nécessaires pour modifier le fichier **/etc/shadow**, car seule compte **root** peut le faire.
+
+    [root@machine ~]# ls -lrth /etc/shadow
+    ---------- 1 root root 1,2K 5 mai 19:13 /etc/shadow
+
+Les fichiers disposant du droit spécial **setuid** sont donc très sensibles et doivent être vérifiés par l'administrateur.
+
+En effet, les commandes associées sont spécialement conçues pour utiliser ce droit et, par conséquent, toute commande non vérifiée peut provoquer des attributions de privilèges interdites.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Examinez la liste des fichiers avec les droits spéciaux setuid, setgid et sticky bit.
+
+Listons les **_fichiers_** **`setuid`** :
+
+    [root@machine ~]# find / -type f -perm /4000 -ls 2>/dev/null
+    12849314 24 -rws--x--x 1 root root 24048 avril 11 2018 /usr/bin/chfn
+    12849317 24 -rws--x--x 1 root root 23960 avril 11 2018 /usr/bin/chsh
+    ...
+    13008451 140 ---s--x--x 1 root root 143184 avril 11 2018 /usr/bin/sudo
+    ...
+    12897991 16 -rwsr-xr-x 1 root root 15432 avril 11 2018 /usr/lib/polkit-1/polkit-agent-helper-1
+    12879166 60 -rwsr-x--- 1 root dbus 58016 avril 11 2018 /usr/libexec/dbus-1/dbus-daemon-launch-helper
+
+Listons les **_fichiers_** **`setgid`** :
+
+    [root@machine ~]# find / -type f -perm /6000 -ls 2>/dev/null
+    12638690 16 -r-xr-sr-x 1 root tty 15344 juin 10 2014 /usr/bin/wall
+    12849314 24 -rws--x--x 1 root root 24048 avril 11 2018 /usr/bin/chfn
+    12849317 24 -rws--x--x 1 root root 23960 avril 11 2018 /usr/bin/chsh
+    ...
+    271691 460 ---x--s--x 1 root ssh_keys 469880 avril 11 2018 /usr/libexec/openssh/ssh-keysign
+
+Listons les **_répertoires_** **`stickybit`** :
+
+    [root@machine ~]# find / -type d -perm -1000 -exec ls -ld {} \;
+    drwxrwxrwt 2 root root 40 5 mai 12:23 /dev/mqueue
+    drwxrwxrwt 2 root root 40 5 mai 12:23 /dev/shm
+    ...
+    drwxrwxrwt 2 root root 6 5 mai 12:23 /tmp/systemd-private-857d97fdb38348769fb88204ce6007f3-mariadb.service-GrLeTT/tmp
