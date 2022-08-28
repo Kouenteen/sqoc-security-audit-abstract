@@ -28,5 +28,5 @@ C'est pourquoi, il faudrait trier les recommandations pour cette situation, en 4
     - **❌CRITICAL**,
     - **🚸WARNING**.
 
-# 2. Croiser notre analyse avec un outil d'audit automatique
+## 2. Croiser notre analyse avec un outil d'audit automatique
 
