@@ -149,7 +149,7 @@ Pas de recommandation car la présence d'un périphérique de type bloc est comm
 
 ## 2.1 Introduction
 
-Analysons plus end étail le partitionnement et les systèmes de fichiers des périphériques de type bloc. On y verra les défauts de droits et mauvaises options de montage des disques sur le systèmes.
+Analysons plus en détail le partitionnement et les systèmes de fichiers des périphériques de type bloc. On y verra les défauts de droits et mauvaises options de montage des disques sur le systèmes.
 
 ## 2.2 Le partitionnement du disque dur
 
@@ -460,19 +460,39 @@ Ici, la période de validité du mot de passe est infinie par défaut. Il serait
 
 ## 3.4 Droits spéciaux - Lister les fichiers avec les attributs setuid, setgid et stickybit
 
+### 3.4.1 Introduction
+
+Un fichier **_setuidé_** permet à un utilisateur simple d'utiliser une commande/écrire dans un fichier qui nécessiterait des privilèges élevés (par exemple des droits **root**).
+
+Un fichier **_setgidé_** a le même principe que le **setuid** mais sera effectif au niveau des droits du groupe.
+
+Un répertoire **_setgidé_** est la même chose que le **setuid** mais pour un groupe d'utilisateurs. Ainsi, si une équipe de personnes travaillent sur le même projet donc le même répertoire, lui accorder un droit **setgid** peut être une bonne idée.
+
+De cette façon, les fichiers créés appartiendront tous au même groupe et non aux groupes de chaque utilisateur individuel.
+
+Le **_sticky bit_** peut être placé sur un exécutable par exemple, et cet exécutable restera en mémoire même lorsqu'il aura terminé son exécution. Ainsi, il se lancera plus rapidement au prochain lancement.
+
+Cette pratique tend à être obsolète et seul l'administrateur système peut positionner le **sticky bit**.
+
+Pour les répertoires, il sert à _sécuriser_ un fichier qui se trouve dans un répertoire où tout le monde a les droits en écriture. Par exemple le répertoire **/tmp**, il serait gênant que quelqu'un d'autre que nous, puisse supprimer notre fichier.
+
+Pour y remédier, on met le sticky bit sur ce répertoire, autorisant la suppression d'un fichier uniquement à son propriétaire (nous).
+
+### 3.4.2 Cas concrets
+
 Prenons un exemple avec la commande **`passwd`** :
 
     [root@machine ~]# ls -lrtha /bin/passwd
     -rwsr-xr-x. 1 root root 28K 10 juin 2014 /bin/passwd
 
-La commande utilise **setuid** pour permettre à un utilisateur de la lancer avec le compte propriétaire de la commande (généralement **root**).
+La commande utilise **setuid** pour permettre à un utilisateur simple de la lancer avec le compte propriétaire de la commande (généralement **root**).
 
-C'est indispensable pour obtenir les privilèges nécessaires pour modifier le fichier **/etc/shadow**, car seule compte **root** peut le faire.
+C'est indispensable pour obtenir les privilèges nécessaires pour modifier le fichier **/etc/shadow**, car seul le compte **root** peut le faire.
 
     [root@machine ~]# ls -lrth /etc/shadow
     ---------- 1 root root 1,2K 5 mai 19:13 /etc/shadow
 
-Les fichiers disposant du droit spécial **setuid** sont donc très sensibles et doivent être vérifiés par l'administrateur.
+Les fichiers disposant du droit spécial **setuid** sont donc très sensibles et doivent être vérifiés par l'administrateur car potentiellement modifiable par un utilisateur simple.
 
 En effet, les commandes associées sont spécialement conçues pour utiliser ce droit et, par conséquent, toute commande non vérifiée peut provoquer des attributions de privilèges interdites.
 
@@ -505,3 +525,170 @@ Listons les **_répertoires_** **`stickybit`** :
     drwxrwxrwt 2 root root 40 5 mai 12:23 /dev/shm
     ...
     drwxrwxrwt 2 root root 6 5 mai 12:23 /tmp/systemd-private-857d97fdb38348769fb88204ce6007f3-mariadb.service-GrLeTT/tmp
+
+
+## 3.5 Le processus sudo
+
+Le seul compte utilisateur qui semble disposer des privilèges administrateur est le compte **root**.
+
+Cependant cette configuration par défaut n'est pas acceptable, on devrait pouvoir identifier chaque administrateur de la machine et ils doivent avoir les permissions associés à leur rôle sur le machine.
+
+L'utilisateur **root** doit vraiment être utilisé qu'en dernier recours.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Vérifiez la présence d'un groupe d'utilisateurs identifié comme administrateur de la machine et disposant des droits de changement de privilèges, par l'intermédiaire d'un processus type sudo.
+>
+> Par exemple, avec la commande `groupadd admin`.
+
+Parmi les fichiers disposant du droit **setuid**, nous avons pu observer la présence de **/usr/bin/sudo**.
+
+Cet outil permet à un utilisateur d'obtenir des droits prédéfinis dans le fichier de configuration **/etc/sudoers**.
+
+    [root@machine ~]# ls -lrtha /usr/bin/sudo
+    ---s--x--x. 1 root root 140K 11 avril 2018 /usr/bin/sudo
+
+Elle dipose bien du bit **setuid** mais est configurée par défaut avec les droits d'exécution pour tout utilisateur. Cette configuration n'est pas sécurisée et il est nécessaire de restreindre le droit d'exécution de cette commande uniquement au groupe administrateur créé précédemment.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Vérifiez que la commande **sudo** peut être exécutée uniquement par le groupe **admin** et l'utilisateur **root**.
+>
+> Par exemple, avec la commande `chmod 4750 /usr/bin/sudo` et `chown root:admin /usr/bin/sudo` :
+
+    [root@machine ~]# chmod 4750 /usr/bin/sudo
+    [root@machine ~]# chown root:admin /usr/bin/sudo
+    [root@machine ~]# ls -lrtha /usr/bin/sudo
+    -rwsr-x---. 1 root admin 140K 11 avril 2018 /usr/bin/sudo
+
+Ensuite, il est nécessaire de vérifier que le groupe admin dispose bien au minimum des droits pour exécuter les commandes nécessaires au maintien du système dans le fichier **/etc/sudoers**.
+
+Au mieux, toutes les commandes possibles.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Moindre privilège) : Vérifiez que le fichier **/etc/sudoers** contient la déclaration des commandes nécessaires pour les utilisateurs du groupe **admin**.
+>
+> Par exemple :
+
+    %admin ALL=(ALL) ALL
+
+## 3.6 Les mises à jour de sécurité
+
+_La partie que nous verrons **concernera CentOS** (yum/dnf) mais le principe est presque le même pour Debian/Ubuntu (apt)_
+
+Les distributions fournissent le système sous la forme de packages de sources précompilées.
+
+Cela nous évite de devoir compiler manuellement les sources des composants du système. Cependant, il faudrait toujours vérifier que les éditeurs de distributions n'ont pas mis à jour un package suite à la publication d'une CVE (_**Common Vulnerabilities Exposure**_).
+
+Pour faire cette veille de façon correcte, il faut regarder du côté des dépôts de paquets, et s'assurer qu'ils soient qualifiés et sûrs.
+
+Il faut vérifier les fichiers de configuration du **gestionnaire de paquets** ou _**package manager**_. Sur CentOS, c'est **yum** ou bien **dnf**,  sur Debian/Ubuntu, c'est **apt**.
+
+Les vérifications sont un peu différentes entre les deux package manager (yum et apt) mais l'opération consiste à vérifier que les adresses des dépôts pointent vers des serveurs maintenus directement par l'éditeur et que les packages téléchargés comportent une signature numérique.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Défense en profondeur) : Vérifiez que les packages installés sur le système sont signés et sûrs.
+>
+> Par exemple, en consultant le fichier **/etc/yum.repos.d/CentOS-Base.repo** :
+
+    [root@machine ~]# more /etc/yum.repos.d/CentOS-Base.repo
+    # CentOS-Base.repo
+    ...
+    [base]
+    name=CentOS-$releasever - Base
+    mirrorlist=http://mirrorlist.centos.org/?release=$releasever&arch=$basearch&repo=os&infra=$infra
+    #baseurl=http://mirror.centos.org/centos/$releasever/os/$basearch/
+    gpgcheck=1
+    gpgkey=file:///etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+
+Ici, les attributs **gpgcheck** et **gpgkey** garantissent que toutes les signatures numériques des packages téléchargés seront vérifiées.
+
+Il faudrait également constamment vérifier qu'il n'y a pas besoin de mettre à jour des paquets qui auraient été corrigés par l'éditeur.
+
+Pour cela, sous CentOS, il faut installer un plugin qui permet de mettre à jour uniquement les paquets corrigés pour des raisons de sécurité : **yum-plugin-security**.
+
+On vérifie d'abord si le plugin est installé :
+
+    [root@machine ~]# yum list installed | grep security
+    [root@machine ~]#
+
+Si la commande ne renvoie pas de résultat, c'est qu'il n'est pas installé.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Défense en profondeur) : Vérifiez que le plugin gérant les mises à jour de sécurité des paquets est bien installé.
+>
+> Par exemple, avec la commande `yum install yum-plugin-security` :
+
+Depuis la version 7 de CentOS, le plugin est directement intégré au gestionnaire de paquets **yum**.
+
+La commande **yum --security check-update** vérifie s'il y a besoin de mettre à jour des paquets :
+
+    [root@machine ~]# yum --security check-update
+    Modules complémentaires chargés : fastestmirror
+    base/7/x86_64 | 3.6 kB 00:00:00
+    epel/x86_64/metalink | 24 kB 00:00:00
+    epel/x86_64
+    ...
+    --> 1:openssl-1.0.2k-16.el7_6.1.x86_64 from updates excluded (updateinfo)
+    --> 1:openssl-devel-1.0.2k-16.el7_6.1.i686 from updates excluded (updateinfo)
+    No packages needed for security; 165 packages available
+
+Le retour de la commande indique qu'il n'y a pas de mises à jour de paquets **for security** mais en revanche, 165 paquets peuvent être mis à jour.
+
+Cette vérification doit être effectuée au moins 1 fois par jour par exemple, surtout sur les serveurs accessibles publiquement.
+
+Il serait donc utile de mettre une tâche planifiée via le paquet **yum-cron**, qui s'appuie sur le gestionnaire de tâches planifiées **cron**.
+
+> ❌ **RECOMMANDATION-CRITICAL** (Défense en profondeur) : Vérifiez la planification régulière d'une tâche automatique pour mettre à jour les paquets corrigés pour raisons de sécurité.
+>
+> Par exemple, avec la commande `yum install yum-cron`.
+
+La commande va programmer une tâche quotidienne avec la configuration suivante :
+
+    [root@machine ~]# grep ^[^#] /etc/yum/yum-cron.conf
+    [commands]
+    update_cmd = default
+    update_messages = yes
+    download_updates = yes
+    apply_updates = no
+    random_sleep = 360
+    [emitters]
+    system_name = None
+    emit_via = stdio
+    output_width = 80
+    [email]
+    email_from = root@localhost
+    email_to = root
+    email_host = localhost
+    [groups]
+    group_list = None
+    group_package_types = mandatory, default
+    [base]
+    debuglevel = -2
+    mdpolicy = group:main
+
+La directive **update_cmd** peut être positionné aux valeurs suivantes :
+
+| Valeur      | Commande correspondante |
+| ----------- | ----------- |
+| update_cmd = default      | yum upgrade |
+| update_cmd = security      | yum --security upgrade |
+| update_cmd = security-severity:Critical      | yum --sec-severity=Critical upgrade |
+| update_cmd = minimal      | yum --bugfix update-minimal |
+| update_cmd = minimal-security      | yum --security update-minimal |
+| update_cmd = minimal-security-severity:Critical      | yum --sec-severity=Critical update-minimal |
+
+# 4. Résumé des recommandations de toute cette partie
+
+| Recommandation      | Type | Principe |
+| ----------- | ----------- | ----------- |
+| Vérifier que le CPU dispose bien des flags **PAE** et **NX**      | ❌CRITICAL | Défense en profondeur |
+| Vérifier la présence d'un **minimum de mémoire SWAP** sur le système      | 🚸WARNING |Défense en profondeur |
+| Vérifier le **chiffrement des partitions** sensibles du système      | ❌CRITICAL | Défense en profondeur |
+| Vérifier que le **partitionnement isole et protège** les composants du système      | ❌CRITICAL | Défense en profondeur |
+| Vérifier les **options des points de montage** des systèmes de fichiers      | ❌CRITICAL | Moindre privilège |
+| Vérifier la **protection de la partition /boot**      | ❌CRITICAL | Moindre privilège |
+| Vérifier que les **mots de passe du module PAM sont en mode shadow**      | ❌CRITICAL | Défense en profondeur |
+| Vérifier la robustesse des mots de passe avec le **module pam_pwquality**      | 🚸WARNING | Défense en profondeur |
+| Vérifier que les comptes utilisateurs qui peuvent se connecter ont pour obligation de **changer leur mot de passe régulièrement**      | ❌CRITICAL | Défense en profondeur |
+| Vérifier les valeurs par défaut des attributs des mots de passe pour chaque compte utilisateur dans **/etc/login.defs**      | 🚸WARNING | Défense en profondeur |
+| Examiner la liste des fichiers avec les droits spéciaux **setuid**, **setgid** et **sticky bit**      | ❌CRITICAL | Moindre privilège |
+| Vérifier la présence d'un **groupe d'utilisateurs** identifié comme **administrateur** de la machine et disposant des droits de changement de privilèges par l'intermédiaire d'un processus type sudo      | ❌CRITICAL | Moindre privilège |
+| Vérifier que la commande **sudo** peut être exécutée **uniquement par le groupe administrateur** (+ root)      | ❌CRITICAL | Moindre privilège |
+| Vérifier que le fichier de configuration **/etc/sudoers** contient la déclaration des commandes nécessaires au maintien du système pour **les utilisateurs du groupe administrateur**      | ❌CRITICAL | Moindre privilège |
+| Vérifier que les packages installés sur le système sont **signés et sûrs**      | ❌CRITICAL | Défense en profondeur |
+| Vérifier que le **plugin gérant les mises à jour de sécurité** des packages de la distribution est bien installé      | ❌CRITICAL | Défense en profondeur |
+| Vérifier la planification régulière d'une tâche automatique pour **mettre à jour les packages corrigés pour raisons de sécurité**      | ❌CRITICAL | Défense en profondeur |

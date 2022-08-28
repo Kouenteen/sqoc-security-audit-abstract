@@ -439,13 +439,13 @@ Tous les services avec le statut **enabled** seront lancés automatiquement sur 
 
 | Recommandation      | Type | Principe   |
 | ----------- | ----------- | -----------|
-| Passer les droits sur l'arborescence **/etc/grub.d/** à **700**      | ❌ CRITICAL       | Moindre privilège |
-| Créer un user et son **mot de passe chiffré** dans le fichier **01_users** afin de protéger l'accès au `shell` de GRUB2 par une authentification  | ❌ CRITICAL        | Minimisation |
-| Passer l'option **iommu=force** au noyau lors du démarrage de Linux      | 🚸 WARNING       | Minimisation |
-| Bloquer le chargement de modules supplémentaires via la commande **sysctl kernel.modules_disabled=1**   | 🚸 WARNING        | Minimisation |
-| Vider le contenu du fichier **/etc/securetty** afin de bloquer toute connexion avec l'utilisateur root depuis une console virtuelle      | ❌ CRITICAL       | Défense en profondeur |
-| Augmenter l'intervalle minimal de temps entre chaque tentative de connexion sur le module **pam_faildelay.so** du fichier **/etc/pam.d/system-auth** à 5 ou 10 secondes afin de ralentir les attaques par dictionnaire   | 🚸 WARNING        | Défense en profondeur |
-| Désactiver la combinaison **Ctrl+Alt+Supp** sur le serveur pour prévenir tout redémarrage depuis un accès physique à la machine      | ❌ CRITICAL       | Défense en profondeur |
-| Désactiver les **Magic System Request Keys**   | 🚸 WARNING        | Défense en profondeur |
-| Supprimer les **services inutiles** démarrés automatiquement avec le serveur en passant par **la cible par défaut**      | ❌ CRITICAL       | Minimisation |
+| Passer les droits sur l'arborescence **/etc/grub.d/** à **700**      | ❌CRITICAL       | Moindre privilège |
+| Créer un user et son **mot de passe chiffré** dans le fichier **01_users** afin de protéger l'accès au `shell` de GRUB2 par une authentification  | ❌CRITICAL        | Minimisation |
+| Passer l'option **iommu=force** au noyau lors du démarrage de Linux      | 🚸WARNING       | Minimisation |
+| Bloquer le chargement de modules supplémentaires via la commande **sysctl kernel.modules_disabled=1**   | 🚸WARNING        | Minimisation |
+| Vider le contenu du fichier **/etc/securetty** afin de bloquer toute connexion avec l'utilisateur root depuis une console virtuelle      | ❌CRITICAL       | Défense en profondeur |
+| Augmenter l'intervalle minimal de temps entre chaque tentative de connexion sur le module **pam_faildelay.so** du fichier **/etc/pam.d/system-auth** à 5 ou 10 secondes afin de ralentir les attaques par dictionnaire   | 🚸WARNING        | Défense en profondeur |
+| Désactiver la combinaison **Ctrl+Alt+Supp** sur le serveur pour prévenir tout redémarrage depuis un accès physique à la machine      | ❌CRITICAL       | Défense en profondeur |
+| Désactiver les **Magic System Request Keys**   | 🚸WARNING        | Défense en profondeur |
+| Supprimer les **services inutiles** démarrés automatiquement avec le serveur en passant par **la cible par défaut**      | ❌CRITICAL       | Minimisation |
 | Supprimer les **services inutiles** démarrés automatiquement avec le serveur en passant par **les dépendances de la cible par défaut**   | 🚸 WARNING        | Minimisation |
